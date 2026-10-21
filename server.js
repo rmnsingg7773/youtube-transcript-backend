@@ -1,15 +1,22 @@
 const express = require('express');
 const cors = require('cors');
-const { Innertube } = require('youtubei.js');
+const { Innertube, UniversalCache } = require('youtubei.js');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
 let youtube;
-(async () => {
-  youtube = await Innertube.create();
-})();
+
+async function getYouTubeClient() {
+  if (!youtube) {
+    youtube = await Innertube.create({
+      cache: new UniversalCache(false),
+      generate_session_locally: true,
+    });
+  }
+  return youtube;
+}
 
 app.post('/api/transcript', async (req, res) => {
   try {
@@ -21,16 +28,15 @@ app.post('/api/transcript', async (req, res) => {
 
     const videoIdMatch = videoUrl.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
     if (!videoIdMatch) {
-      return res.status(400).json({ success: false, error: 'Amanaye YouTube URL।' });
+      return res.status(400).json({ success: false, error: 'Amanaye YouTube URL.' });
     }
     const videoId = videoIdMatch[1];
 
-    if (!youtube) {
-      youtube = await Innertube.create();
-    }
-
-    const info = await youtube.getInfo(videoId);
-    const transcriptData = await info.getTranscript();
+    const yt = await getYouTubeClient();
+    const info = await yt.getInfo(videoId);
+    
+    // Get transcript with safety fallback
+    const transcriptData = await info.getTranscript().catch(() => null);
 
     if (!transcriptData || !transcriptData.transcript || !transcriptData.transcript.content) {
       return res.status(404).json({ success: false, error: 'Is video mein captions uplabdh nahi hain.' });

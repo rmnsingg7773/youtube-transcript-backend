@@ -14,7 +14,15 @@ app.post('/api/transcript', async (req, res) => {
       return res.status(400).json({ success: false, error: 'URL zaroori hai.' });
     }
 
-    const transcriptData = await YoutubeTranscript.fetchTranscript(videoUrl);
+    // URL se sahi Video ID nikalna (chahe short link ho ya long)
+    const videoIdMatch = videoUrl.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+    if (!videoIdMatch) {
+      return res.status(400).json({ success: false, error: 'Kripya ek manya YouTube URL dalein.' });
+    }
+    const videoId = videoIdMatch[1];
+    const cleanUrl = `https://www.youtube.com/watch?v=${videoId}`;
+
+    const transcriptData = await YoutubeTranscript.fetchTranscript(cleanUrl);
 
     if (!transcriptData || transcriptData.length === 0) {
       return res.status(404).json({ success: false, error: 'Is video mein captions uplabdh nahi hain.' });
